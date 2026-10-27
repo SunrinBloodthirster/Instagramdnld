@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#101522">
+  <meta name="description" content="공개 인스타그램 게시물에 포함된 사진을 ZIP 파일로 보관하는 개인용 웹 도구.">
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Framekeep — Instagram photo saver</title>
+</head>
+<body>
+  <div class="backdrop backdrop-a" aria-hidden="true"></div>
+  <div class="backdrop backdrop-b" aria-hidden="true"></div>
+  <div class="shell">
+    <header class="topbar">
+      <a class="brand" href="./" aria-label="Framekeep 홈">
+        <span class="brand-mark" aria-hidden="true">◩</span>
+        <span>framekeep<span class="brand-dot">.</span></span>
+      </a>
+      <span class="top-label">PHOTO ARCHIVER <span class="top-label-dot"></span> v1.0</span>
+    </header>
+
+    <main>
+      <div class="intro-label"><span class="mini-line"></span> PUBLIC POST SAVER</div>
+      <h1>좋아하는 순간을<br><em>선명하게</em> 간직하세요.</h1>
+      <p class="subtitle">인스타그램 게시물 링크를 넣으면 공개 게시물에 포함된 사진을 가능한 높은 화질로 모아 ZIP 파일로 저장합니다.</p>
+
+      <section class="panel" aria-labelledby="form-title">
+        <div class="panel-heading">
+          <div>
+            <p class="eyebrow">01 / PASTE LINK</p>
+            <h2 id="form-title">게시물 주소 입력</h2>
+          </div>
+          <div class="limit-chip">최대 3개</div>
+        </div>
+        <form id="download-form">
+          <label for="links" class="field-label">INSTAGRAM POST URL</label>
+          <div class="textarea-wrap">
+            <textarea id="links" name="links" rows="4" spellcheck="false" autocomplete="off" placeholder="https://www.instagram.com/p/XXXXXXXXXXX/" aria-describedby="links-hint" required></textarea>
+            <button class="paste-btn" id="paste-button" type="button" title="클립보드에서 붙여넣기">붙여넣기 ↗</button>
+          </div>
+          <p class="help" id="links-hint">한 줄에 링크 하나씩 입력하세요. 공개 게시물 · 사진만 지원합니다.</p>
+
+          <div class="action-row">
+            <div class="status"><span class="status-light" id="server-light"></span><span id="server-status">서버 확인 중</span></div>
+            <button class="main-btn" type="submit" id="submit-btn"><span id="button-label">사진 다운로드</span><span aria-hidden="true">↗</span></button>
+          </div>
+        </form>
+        <div id="feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+      </section>
+
+      <section class="lower-grid" aria-label="안내">
+        <article class="tip-card">
+          <div class="tip-icon" aria-hidden="true">01</div>
+          <h3>게시물 링크 복사</h3>
+          <p>인스타그램 게시물의 공유 메뉴에서 링크를 복사합니다.</p>
+        </article>
+        <article class="tip-card">
+          <div class="tip-icon" aria-hidden="true">02</div>
+          <h3>사진만 추출</h3>
+          <p>여러 장의 사진도 자동 수집합니다. 영상은 다운로드하지 않습니다.</p>
+        </article>
+        <article class="tip-card">
+          <div class="tip-icon" aria-hidden="true">03</div>
+          <h3>ZIP 파일로 보관</h3>
+          <p>게시물별 폴더가 포함된 압축 파일을 기기에 저장합니다.</p>
+        </article>
+      </section>
+
+      <details class="settings" id="settings">
+        <summary><span>서버 연결 설정</span><span class="settings-summary-hint">GitHub Pages 배포 시 필요 <span aria-hidden="true">⌄</span></span></summary>
+        <div class="settings-body">
+          <label for="api-url" class="field-label">BACKEND URL (RENDER)</label>
+          <input id="api-url" type="url" placeholder="https://your-app.onrender.com" spellcheck="false" autocomplete="off">
+          <p class="help">Render 하나로 배포했다면 비워두세요. GitHub Pages라면 Render 주소를 입력하고 저장해야 합니다.</p>
+          <label for="access-key" class="field-label top-gap">OPTIONAL ACCESS KEY</label>
+          <input id="access-key" type="password" placeholder="서버에서 APP_ACCESS_KEY를 설정한 경우만" autocomplete="off">
+          <p class="help">접근 키는 이 브라우저에만 저장됩니다. GitHub 소스 코드에는 포함되지 않습니다.</p>
+          <button class="secondary-btn" type="button" id="save-settings">연결 설정 저장</button>
+        </div>
+      </details>
+      <div class="notice">비공개 게시물 및 로그인 필요 게시물은 지원하지 않습니다. 인스타그램에 업로드된 뒤 서버에서 제공되는 화질이므로 업로드 전 원본과 다를 수 있습니다. 저장한 사진은 본인에게 권리가 있거나 허락받은 범위에서 사용하세요.</div>
+    </main>
+    <footer><span>FRAMEKEEP / PERSONAL ARCHIVE</span><span>Made for the moments worth keeping.</span></footer>
+  </div>
+  <script src="./app.js" defer></script>
+</body>
+</html>
