@@ -18,7 +18,7 @@
         <span class="brand-mark" aria-hidden="true">◩</span>
         <span>framekeep<span class="brand-dot">.</span></span>
       </a>
-      <span class="top-label">PHOTO ARCHIVER <span class="top-label-dot"></span> v1.0</span>
+      <span class="top-label">PHOTO ARCHIVER <span class="top-label-dot"></span> v1.1</span>
     </header>
 
     <main>
@@ -68,6 +68,20 @@
         </article>
       </section>
 
+      <details class="settings" id="manual-mode">
+        <summary><span>자동 추출이 실패했나요? · 이미지 주소로 직접 저장</span><span class="settings-summary-hint">Network → Img <span aria-hidden="true">⌄</span></span></summary>
+        <div class="settings-body">
+          <p class="help" style="margin:0 0 15px">로그인한 브라우저에서 게시물을 연 뒤 F12 → Network → Img → 새로고침합니다. 원하는 이미지 요청의 URL을 복사하세요. 여러 장의 게시물은 각 사진의 URL을 복사해야 합니다.</p>
+          <form id="manual-form">
+            <label class="field-label" for="image-urls">IMAGE CDN URLS (최대 15개)</label>
+            <textarea id="image-urls" rows="4" autocomplete="off" spellcheck="false" required placeholder="https://scontent-...cdninstagram.com/...&#10;https://...fbcdn.net/..."></textarea>
+            <p class="help">한 줄에 URL 하나씩 입력하세요. HTTPS 이미지 CDN 주소만 허용됩니다. 만료되거나 서버 접근이 차단된 URL은 실패할 수 있습니다. 쿠키·비밀번호를 입력하지 마세요.</p>
+            <button class="secondary-btn" id="manual-submit" type="submit">이미지 주소로 ZIP 다운로드</button>
+          </form>
+          <div id="manual-feedback" class="feedback" role="status" aria-live="polite" hidden></div>
+        </div>
+      </details>
+
       <details class="settings" id="settings">
         <summary><span>서버 연결 설정</span><span class="settings-summary-hint">GitHub Pages 배포 시 필요 <span aria-hidden="true">⌄</span></span></summary>
         <div class="settings-body">
@@ -85,5 +99,6 @@
     <footer><span>FRAMEKEEP / PERSONAL ARCHIVE</span><span>Made for the moments worth keeping.</span></footer>
   </div>
   <script src="./app.js" defer></script>
+  <script src="./manual.js" defer></script>
 </body>
 </html>

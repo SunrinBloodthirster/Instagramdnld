@@ -117,8 +117,15 @@ form.addEventListener("submit", async (event) => {
     });
     if (!response.ok) {
       let error = `서버 오류 (HTTP ${response.status})`;
-      try { const data = await response.json(); if (data.error) error = data.error; } catch {}
-      throw new Error(error);
+      let code = "";
+      try {
+        const data = await response.json();
+        if (data.error) error = data.error;
+        code = data.code || "";
+      } catch {}
+      const failure = new Error(error);
+      failure.code = code;
+      throw failure;
     }
     const blob = await response.blob();
     if (blob.size < 100) throw new Error("서버가 빈 파일을 보냈습니다.");
@@ -137,7 +144,12 @@ form.addEventListener("submit", async (event) => {
     setFeedback(failed ? `${report}\n${failed}개 게시물은 가져오지 못했습니다. ZIP 안의 download_report.txt를 확인하세요.` : report, "success");
   } catch (error) {
     const timeout = error.name === "TimeoutError" || error.name === "AbortError";
-    setFeedback(timeout ? "다운로드 처리 시간이 초과되었습니다. 링크 수를 줄이거나 잠시 뒤 다시 시도해 주세요." : `다운로드 실패: ${error.message}\n서버 주소, 공개 게시물 여부 및 인스타그램의 접근 제한을 확인해 주세요.`, "error");
+    if (error.code === "ACCESS_RESTRICTED") {
+      $("manual-mode").open = true;
+      setFeedback("다운로드 실패: " + error.message + "\n서버 연결은 정상입니다. 아래 이미지 주소 직접 저장 방식을 이용할 수 있습니다.", "error");
+    } else {
+      setFeedback(timeout ? "다운로드 처리 시간이 초과되었습니다." : "다운로드 실패: " + error.message, "error");
+    }
   } finally {
     submitBtn.disabled = false;
     submitBtn.classList.remove("loading");

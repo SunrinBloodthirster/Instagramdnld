@@ -23,7 +23,7 @@ from flask import Flask, jsonify, request, send_file
 
 BASE_DIR = Path(__file__).resolve().parent
 app = Flask(__name__, static_folder=str(BASE_DIR / "docs"), static_url_path="")
-app.config["MAX_CONTENT_LENGTH"] = 8 * 1024
+app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
 app.json.ensure_ascii = False
 
 ALLOWED_HOSTS = {"instagram.com", "www.instagram.com", "m.instagram.com"}
@@ -95,6 +95,8 @@ def classify_error(message: str) -> str:
         return "인스타그램 요청 제한에 걸렸습니다. 잠시 뒤 다시 시도해 주세요."
     if "login" in lower or "authentication" in lower or "401" in lower or "403" in lower:
         return "인스타그램에서 로그인을 요구하거나 접근을 제한했습니다. 공개 게시물도 제한될 수 있습니다."
+    if "missing_required_variable_value" in lower or "keyerror" in lower or "failed to load api data" in lower:
+        return "인스타그램 데이터 요청 방식 변경으로 사진 추출에 실패했습니다. 직접 이미지 주소 저장을 이용해 주세요."
     if "404" in lower or "not found" in lower:
         return "게시물을 찾지 못했습니다. 주소 또는 공개 상태를 확인해 주세요."
     return "사진을 가져오지 못했습니다. 비공개 게시물이거나 인스타그램의 접근 제한일 수 있습니다."
@@ -128,8 +130,22 @@ def download_photos(url: str, destination: Path) -> tuple[list[Path], str]:
         key=lambda p: str(p),
     )
     if not photos:
-        return [], classify_error((completed.stderr or "")[-1200:])
+        stderr = (completed.stderr or "")[-2000:]
+        # Avoid logging signed URLs or cookies.
+        if "login" in stderr.lower() or "403" in stderr:
+            print("[extractor] ACCESS_RESTRICTED", flush=True)
+        elif "429" in stderr:
+            print("[extractor] RATE_LIMITED", flush=True)
+        elif "missing_required_variable_value" in stderr.lower():
+            print("[extractor] API_CHANGED", flush=True)
+        else:
+            print(f"[extractor] NO_MEDIA: exit={completed.returncode}", flush=True)
+        return [], classify_error(stderr)
     return photos[:20], ""
+
+
+from manual_media import register_manual_routes
+register_manual_routes(app, ACCESS_KEY, rate_limited, _jobs)
 
 
 @app.get("/")
@@ -202,7 +218,9 @@ def download():
                     summary = "가져오지 못한 게시물:\n" + "\n".join(failures) + "\n"
                     archive.writestr("download_report.txt", summary.encode("utf-8"))
         if downloaded == 0:
-            return jsonify(error=failures[0].split(": ", 1)[-1] if failures else "사진이 없습니다."), 422
+            error = failures[0].split(": ", 1)[-1] if failures else "사진이 없습니다."
+            code = "ACCESS_RESTRICTED" if "로그인" in error or "접근 제한" in error else "EXTRACTION_FAILED"
+            return jsonify(error=error, code=code, hint="직접 이미지 주소 저장 기능을 이용해 주세요."), 422
         buffer.seek(0)
         name = f"instagram_photos_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.zip"
         response = send_file(buffer, mimetype="application/zip", as_attachment=True, download_name=name)
