@@ -35,3 +35,12 @@ def test_manual_download(monkeypatch):
 
 def test_rejects_html():
     assert manual_media.sniff_extension(b"<html>not an image</html>") is None
+
+
+def test_parallel_multi_image_download(monkeypatch):
+    monkeypatch.setattr(manual_media, "fetch_image", lambda url: (b"\xff\xd8\xffdata", ".jpg", ""))
+    urls = [f"https://x.fbcdn.net/photo{i}.jpg" for i in range(6)]
+    response = server.app.test_client().post("/api/download-direct", json={"image_urls": urls})
+    assert response.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(response.data)) as archive:
+        assert sorted(archive.namelist()) == [f"image_{i:02d}.jpg" for i in range(1, 7)]

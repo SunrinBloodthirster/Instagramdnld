@@ -129,3 +129,11 @@ APP_ACCESS_KEY=길고_무작위적인_비밀문자열
 - [GitHub Pages](https://docs.github.com/en/pages/getting-started-with-github-pages/creating-a-github-pages-site)
 - [Render Web Services](https://render.com/docs/web-services)
 - [gallery-dl](https://github.com/mikf/gallery-dl)
+
+
+## v1.2: 시간 초과 진단 및 처리 개선
+- 자동 추출: 게시물당 최대 **30초**, HTTP 요청 재시도는 0회로 줄였습니다. 느린/차단된 익명 요청이 오래 지속되는 것을 방지합니다.
+- 다운로드 중 시간 초과가 생겼어도 먼저 받아둔 사진은 ZIP에 보관하고 `download_report.txt`로 알려줍니다.
+- 서버에서 반환한 `EXTRACTION_TIMEOUT`(HTTP 504)과 브라우저의 210초 대기시간 초과를 구분합니다.
+- Network → Img의 수동 이미지 URL 다운로드는 최대 3개 요청을 병렬 처리합니다.
+- 이 변경으로 인스타그램의 로그인·접근 제한이 해제되는 것은 아닙니다. CDN URL이 만료되어도 실패할 수 있습니다.

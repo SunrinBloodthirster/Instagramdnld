@@ -113,7 +113,7 @@ form.addEventListener("submit", async (event) => {
     const headers = {"Content-Type": "application/json"};
     if (accessKey) headers["X-App-Key"] = accessKey;
     const response = await fetch(`${base}/api/download`, {
-      method: "POST", headers, body: JSON.stringify({urls}), signal: AbortSignal.timeout(160000),
+      method: "POST", headers, body: JSON.stringify({urls}), signal: AbortSignal.timeout(210000),
     });
     if (!response.ok) {
       let error = `서버 오류 (HTTP ${response.status})`;
@@ -144,11 +144,16 @@ form.addEventListener("submit", async (event) => {
     setFeedback(failed ? `${report}\n${failed}개 게시물은 가져오지 못했습니다. ZIP 안의 download_report.txt를 확인하세요.` : report, "success");
   } catch (error) {
     const timeout = error.name === "TimeoutError" || error.name === "AbortError";
-    if (error.code === "ACCESS_RESTRICTED") {
+    if (error.code === "ACCESS_RESTRICTED" || error.code === "EXTRACTION_TIMEOUT") {
       $("manual-mode").open = true;
-      setFeedback("다운로드 실패: " + error.message + "\n서버 연결은 정상입니다. 아래 이미지 주소 직접 저장 방식을 이용할 수 있습니다.", "error");
+      setFeedback("자동 추출 실패: " + error.message +
+        "\n서버에서 반환한 오류입니다. 아래 Network → Img 방식으로 사진을 직접 저장할 수 있습니다.", "error");
+    } else if (timeout) {
+      $("manual-mode").open = true;
+      setFeedback("브라우저가 210초 동안 서버 응답을 기다렸지만 완료되지 않았습니다." +
+        "\nRender 서버 상태를 확인하거나 게시물 1개씩 시도해 주세요.", "error");
     } else {
-      setFeedback(timeout ? "다운로드 처리 시간이 초과되었습니다." : "다운로드 실패: " + error.message, "error");
+      setFeedback("다운로드 실패: " + error.message, "error");
     }
   } finally {
     submitBtn.disabled = false;

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import io
-import re
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 from zipfile import ZIP_STORED, ZipFile
@@ -100,18 +100,25 @@ def register_manual_routes(app, access_key: str, rate_limited, jobs):
             out = io.BytesIO()
             failures, count, used_bytes = [], 0, 0
             with ZipFile(out, "w", compression=ZIP_STORED, allowZip64=False) as zf:
-                for i, url in enumerate(urls, start=1):
-                    content, ext, err = fetch_image(url)
-                    if content is None or ext is None:
-                        failures.append(f"{i}번째 이미지: {err}")
-                        continue
-                    if used_bytes + len(content) > MAX_ZIP_BYTES:
-                        return jsonify(error="사진 총용량이 80MB 제한을 초과했습니다."), 413
-                    used_bytes += len(content)
-                    count += 1
-                    zf.writestr(f"image_{i:02d}{ext}", content)
+                # Keep memory bounded and avoid 15 serial CDN timeouts.
+                with ThreadPoolExecutor(max_workers=3) as pool:
+                    futures = {pool.submit(fetch_image, url): i for i, url in enumerate(urls, start=1)}
+                    for future in as_completed(futures):
+                        i = futures[future]
+                        try:
+                            content, ext, err = future.result()
+                        except Exception:
+                            content, ext, err = None, None, "이미지 처리 중 오류가 발생했습니다."
+                        if content is None or ext is None:
+                            failures.append(f"{i}번째 이미지: {err}")
+                            continue
+                        if used_bytes + len(content) > MAX_ZIP_BYTES:
+                            return jsonify(error="사진 총용량이 80MB 제한을 초과했습니다."), 413
+                        used_bytes += len(content)
+                        count += 1
+                        zf.writestr(f"image_{i:02d}{ext}", content)
                 if failures:
-                    zf.writestr("download_report.txt", "\n".join(failures).encode("utf-8"))
+                    zf.writestr("download_report.txt", "\n".join(sorted(failures)).encode("utf-8"))
             if not count:
                 return jsonify(error=failures[0].split(": ", 1)[-1] if failures else "사진이 없습니다."), 422
             out.seek(0)

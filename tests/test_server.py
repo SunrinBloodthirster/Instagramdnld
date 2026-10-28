@@ -68,3 +68,34 @@ def test_no_real_download(monkeypatch):
     response = client.post("/api/download", json={"urls": ["https://www.instagram.com/p/C7abcD_123-/"]})
     assert response.status_code == 422
     assert "접근 제한" in response.get_json()["error"]
+
+
+def test_extractor_timeout_yields_clear_error(monkeypatch, tmp_path):
+    import subprocess
+    def fake_run(*args, **kwargs):
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=server.REQUEST_TIMEOUT)
+    monkeypatch.setattr(server.subprocess, "run", fake_run)
+    photos, error = server.download_photos("https://www.instagram.com/p/Abcde12345/", tmp_path)
+    assert photos == []
+    assert "시간이 초과" in error
+    assert server.REQUEST_TIMEOUT == 30
+
+
+def test_extractor_timeout_salvages_images(monkeypatch, tmp_path):
+    import subprocess
+    def fake_run(*args, **kwargs):
+        (tmp_path / "saved.jpg").write_bytes(b"jpg")
+        raise subprocess.TimeoutExpired(cmd=args[0], timeout=server.REQUEST_TIMEOUT)
+    monkeypatch.setattr(server.subprocess, "run", fake_run)
+    photos, error = server.download_photos("https://www.instagram.com/p/Abcde12345/", tmp_path)
+    assert len(photos) == 1
+    assert "시간이 초과" in error
+
+
+def test_timeout_http_status(monkeypatch):
+    monkeypatch.setattr(server, "download_photos", lambda url, path: ([], "게시물 추출 시간이 초과되었습니다."))
+    response = server.app.test_client().post("/api/download", json={
+        "urls": ["https://www.instagram.com/p/Abcde12345/"]
+    })
+    assert response.status_code == 504
+    assert response.get_json()["code"] == "EXTRACTION_TIMEOUT"

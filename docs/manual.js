@@ -30,7 +30,7 @@ manualForm.addEventListener("submit", async (event) => {
     if (key) headers["X-App-Key"] = key;
     const resp = await fetch(backend + "/api/download-direct", {
       method: "POST", headers, body: JSON.stringify({image_urls: urls}),
-      signal: AbortSignal.timeout(160000)
+      signal: AbortSignal.timeout(210000)
     });
     if (!resp.ok) {
       let error = "서버 오류 (HTTP " + resp.status + ")";
@@ -52,7 +52,10 @@ manualForm.addEventListener("submit", async (event) => {
     manualMessage(count + "장의 사진을 ZIP 파일로 저장했습니다." +
       (failures ? "\n" + failures + "개는 실패했습니다. ZIP의 download_report.txt를 확인해 주세요." : ""), "success");
   } catch (err) {
-    manualMessage("다운로드 실패: " + err.message, "error");
+    const timeout = err.name === "TimeoutError" || err.name === "AbortError";
+    manualMessage(timeout
+      ? "브라우저 대기시간(210초)을 초과했습니다. 이미지 URL을 1~3개씩 나누어 시도해 주세요."
+      : "다운로드 실패: " + err.message, "error");
   } finally {
     button.disabled = false;
   }

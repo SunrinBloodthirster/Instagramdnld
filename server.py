@@ -32,7 +32,7 @@ PHOTO_TYPES = {".jpg", ".jpeg", ".png", ".webp", ".avif", ".heic", ".gif"}
 MAX_POSTS = 3
 MAX_PHOTOS = 60
 MAX_ZIP_BYTES = 80 * 1024 * 1024
-REQUEST_TIMEOUT = 47
+REQUEST_TIMEOUT = 30
 REQUESTS_PER_WINDOW = 8
 WINDOW_SECONDS = 15 * 60
 ALLOWED_ORIGINS = {o.strip().rstrip("/") for o in os.getenv("ALLOWED_ORIGINS", "").split(",") if o.strip()}
@@ -111,9 +111,11 @@ def download_photos(url: str, destination: Path) -> tuple[list[Path], str]:
         "--filter", "extension in ('jpg', 'jpeg', 'png', 'webp', 'avif', 'heic', 'gif')",
         "--range", "1-20",
         "--filesize-max", "18M",
-        "--retries", "1", "--http-timeout", "15",
+        "--retries", "0", "--http-timeout", "10",
         url,
     ]
+    started = time.monotonic()
+    timed_out = False
     try:
         completed = subprocess.run(
             command, capture_output=True, text=True,
@@ -121,14 +123,19 @@ def download_photos(url: str, destination: Path) -> tuple[list[Path], str]:
             check=False,
         )
     except subprocess.TimeoutExpired:
-        return [], "게시물 다운로드 시간이 초과되었습니다."
+        timed_out = True
+        completed = None
+        print(f"[extractor] TIMEOUT duration_s={time.monotonic()-started:.1f}", flush=True)
     except OSError:
+        print("[extractor] ENGINE_START_ERROR", flush=True)
         return [], "서버의 다운로드 엔진을 실행하지 못했습니다."
 
     photos = sorted(
         (p for p in destination.rglob("*") if p.is_file() and p.suffix.lower() in PHOTO_TYPES),
         key=lambda p: str(p),
     )
+    if timed_out:
+        return photos[:20], "게시물 추출 시간이 초과되었습니다. 인스타그램 접속 지연 또는 서버 접근 제한일 수 있습니다."
     if not photos:
         stderr = (completed.stderr or "")[-2000:]
         # Avoid logging signed URLs or cookies.
@@ -141,6 +148,7 @@ def download_photos(url: str, destination: Path) -> tuple[list[Path], str]:
         else:
             print(f"[extractor] NO_MEDIA: exit={completed.returncode}", flush=True)
         return [], classify_error(stderr)
+    print(f"[extractor] DONE duration_s={time.monotonic()-started:.1f} photo_count={len(photos)}", flush=True)
     return photos[:20], ""
 
 
@@ -207,6 +215,9 @@ def download():
                         failures.append(f"{shortcode}: {error}")
                         continue
                     downloaded += 1
+                    if error:
+                        failed += 1
+                        failures.append(f"{shortcode}: {error} (일부 사진은 저장됨)")
                     for index, photo in enumerate(photos, start=1):
                         size = photo.stat().st_size
                         if total_bytes + size > MAX_ZIP_BYTES or photo_count >= MAX_PHOTOS:
@@ -219,8 +230,14 @@ def download():
                     archive.writestr("download_report.txt", summary.encode("utf-8"))
         if downloaded == 0:
             error = failures[0].split(": ", 1)[-1] if failures else "사진이 없습니다."
-            code = "ACCESS_RESTRICTED" if "로그인" in error or "접근 제한" in error else "EXTRACTION_FAILED"
-            return jsonify(error=error, code=code, hint="직접 이미지 주소 저장 기능을 이용해 주세요."), 422
+            if "시간이 초과" in error or "시간 초과" in error:
+                code = "EXTRACTION_TIMEOUT"
+            elif "로그인" in error or "접근을 제한" in error:
+                code = "ACCESS_RESTRICTED"
+            else:
+                code = "EXTRACTION_FAILED"
+            status = 504 if code == "EXTRACTION_TIMEOUT" else 422
+            return jsonify(error=error, code=code, hint="직접 이미지 주소 저장 기능을 이용해 주세요."), status
         buffer.seek(0)
         name = f"instagram_photos_{datetime.now(timezone.utc):%Y%m%d_%H%M%S}.zip"
         response = send_file(buffer, mimetype="application/zip", as_attachment=True, download_name=name)
